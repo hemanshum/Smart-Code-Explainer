@@ -19,41 +19,40 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (cm.somethingSelected()) {
                     cm.indentSelection("add");
                 } else {
-                    cm.replaceSelection(cm.getOption("indentWithTabs")? "\t":
-                        Array(cm.getOption("indentUnit") + 1).join(" "), "end", "+input");
+                    cm.replaceSelection("    ", "end");
                 }
             }
         }
     });
-    
-    // Set initial content if needed
-    editor.setValue("// Enter your code here");
-    editor.focus();
+
+    // Set some sample code
+    editor.setValue(`// Enter your code here\nfunction example() {\n    console.log("Hello World!");\n}`);
 });
 
 function showLoading() {
-    const resultDiv = document.getElementById('result');
-    resultDiv.innerHTML = '<div class="loading">Analyzing your code...</div>';
+    const result = document.getElementById('result');
+    result.innerHTML = '<div class="loading">Analyzing code...</div>';
     document.getElementById('copyBtn').style.display = 'none';
 }
 
 function showResult(content) {
-    const resultDiv = document.getElementById('result');
-    // Convert the content to Markdown using marked
-    const formattedContent = marked.parse(content);
-    resultDiv.innerHTML = formattedContent;
+    const result = document.getElementById('result');
+    // Convert the content to markdown
+    const htmlContent = marked.parse(content);
+    result.innerHTML = htmlContent;
     document.getElementById('copyBtn').style.display = 'block';
 }
 
 function showError(error) {
-    const resultDiv = document.getElementById('result');
-    resultDiv.innerHTML = `<div style="color: #dc3545;">❌ Error: ${error}</div>`;
+    const result = document.getElementById('result');
+    result.innerHTML = `<div style="color: #dc3545;">${error}</div>`;
     document.getElementById('copyBtn').style.display = 'none';
 }
 
 function copyResult() {
-    const resultDiv = document.getElementById('result');
-    const text = resultDiv.innerText;
+    const result = document.getElementById('result');
+    const text = result.innerText;
+    
     navigator.clipboard.writeText(text).then(() => {
         const copyBtn = document.getElementById('copyBtn');
         const originalText = copyBtn.innerText;
@@ -61,18 +60,19 @@ function copyResult() {
         setTimeout(() => {
             copyBtn.innerText = originalText;
         }, 2000);
+    }).catch(err => {
+        console.error('Failed to copy text:', err);
     });
 }
 
 async function analyzeCode() {
-    const codeInput = editor.getValue();
-    const analysisType = document.getElementById('analysisType').value;
-
-    if (!codeInput.trim()) {
-        alert('Please enter some code to analyze');
+    const code = editor.getValue();
+    if (!code.trim()) {
+        showError('Please enter some code to analyze');
         return;
     }
 
+    const analysisType = document.getElementById('analysisType').value;
     showLoading();
 
     try {
@@ -82,18 +82,20 @@ async function analyzeCode() {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                code: codeInput,
-                analysisType: analysisType
+                code,
+                analysisType
             })
         });
 
         const data = await response.json();
-        if (data.error) {
-            showError(data.error);
+        
+        if (response.ok) {
+            showResult(data.result);
         } else {
-            showResult(data.analysis);
+            showError(data.error || 'An error occurred while analyzing the code');
         }
     } catch (error) {
-        showError(error.message);
+        showError('Failed to connect to the server. Make sure the server is running.');
+        console.error('Error:', error);
     }
 }
